@@ -1,6 +1,6 @@
 namespace ZeroSum.Engine;
 
-public class OrderBook
+public class SortedDictionaryOrderBook : IOrderBook
 {
     private readonly SortedDictionary<decimal, Queue<Order>> _bids = new();
     private readonly SortedDictionary<decimal, Queue<Order>> _asks = new();

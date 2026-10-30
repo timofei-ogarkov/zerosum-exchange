@@ -72,4 +72,18 @@ public class OrderBookTests
         Assert.Null(book.BestBid());
         Assert.Null(book.BestAsk());
     }
+    [Fact]
+    public void Sell_CrossingBuy_CreatesTrade()
+    {
+        var book = CreateBook();
+        book.Add(CreateOrder(Side.Buy, 100.00m, 1));
+        var trades = book.Add(CreateOrder(Side.Sell, 99.00m, 2));
+        var trade = Assert.Single(trades);
+        Assert.Equal(100.00m, trade.Price);
+        Assert.Equal(5m, trade.Quantity);
+        Assert.Equal(1, trade.BuyOrderId);
+        Assert.Equal(2, trade.SellOrderId);
+        Assert.Null(book.BestBid());
+        Assert.Null(book.BestAsk());
+    }
 }

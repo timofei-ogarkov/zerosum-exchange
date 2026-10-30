@@ -36,6 +36,30 @@ public class SortedDictionaryOrderBook : IOrderBook
 
             }
         }
+        else
+        {
+            while (order.RemainingQuantity > 0 && _bids.Count > 0 && _bids.Keys.Last()>= price)
+            {
+                var bestBid = _bids.Keys.First();
+                var queue = _bids[bestBid];
+                var resting = queue.Peek();
+                decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
+                order.Fill(quantity);
+                resting.Fill(quantity);
+                trades.Add(new Trade(resting.Id, order.Id, bestBid, quantity));
+
+                if (resting.IsFilled)
+                {
+                    queue.Dequeue();
+                }
+
+                if (queue.Count == 0)
+                {
+                    _bids.Remove(bestBid);
+                }
+
+            }
+        }
         if(order.RemainingQuantity > 0)
         {
         var side = order.OrderSide == Side.Buy ? _bids : _asks;

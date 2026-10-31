@@ -14,9 +14,11 @@ No real money, no crypto. It is a training ground and an engineering showcase.
 ## Where it is now
 
 - `Order`: an order with side, type, price and quantities. Filling more than the remaining quantity is rejected.
-- `OrderBook`: resting limit orders stored as price levels, each level a FIFO queue. Reports the best bid and best ask.
-- Unit tests for `Order` with xUnit.
-- **Next:** order matching, so that crossing orders turn into trades.
+- `IOrderBook`: the contract every order book implements. All order book tests run against it, so another implementation can be swapped in and checked by the same tests.
+- `SortedDictionaryOrderBook`: price levels stored in a sorted dictionary, each level a FIFO queue. Incoming limit orders are matched against the opposite side with price-time priority, can walk several price levels, and any unfilled remainder rests in the book. Reports the best bid and best ask.
+- `Trade`: buyer order, seller order, price and quantity. Every `Add` returns the trades it produced.
+- 13 unit tests with xUnit: order fills, best prices, matching in both directions, multi-level matching, partial fills and first-in-first-out at the same price.
+- **Next:** a 0.01 price tick rule, total quantity per price level, then market orders and cancellation.
 
 The walkthrough below describes how the finished exchange will behave.
 
@@ -131,7 +133,9 @@ Browser (SvelteKit) / Bots
 ## Roadmap
 
 - [x] Order model and order book with unit tests
-- [ ] Order matching
+- [x] Order matching for limit orders with price-time priority
+- [ ] Price tick rule, market orders, cancellation
+- [ ] Price-grid order book with bitmap search, benchmarked against `SortedDictionaryOrderBook`
 - [ ] API, accounts, fund reservation, double-entry ledger
 - [ ] Live UI: order book, trades, order form, balances
 - [ ] Bots and public demo

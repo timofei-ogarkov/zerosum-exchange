@@ -41,5 +41,6 @@ public class OrderTests
         var order = CreateOrder();
         Assert.Equal(0m, order.FilledQuantity);
         Assert.False(order.IsFilled);
+        
     }
 }

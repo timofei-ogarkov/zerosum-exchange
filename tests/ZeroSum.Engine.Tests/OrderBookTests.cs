@@ -136,5 +136,25 @@ public class OrderBookTests
         Assert.Equal(100.00m, book.BestAsk());
     }
 
+    [Fact]
+    public void Sell_HitsHighestBidFirst()
+    {
+        var book = CreateBook();
+        var buyer1 = CreateOrder(Side.Buy, 95.00m, 1);
+        var buyer2 = CreateOrder(Side.Buy, 100.00m, 2);
+        var seller = CreateOrder(Side.Sell, 99.00m, 3);
+        book.Add(buyer1);
+        book.Add(buyer2);
+
+        var trades = book.Add(seller);
+
+        var trade = Assert.Single(trades);
+        Assert.Equal(2, trade.BuyOrderId);
+        Assert.Equal(100.00m, trade.Price);
+        Assert.True(buyer2.IsFilled);
+        Assert.Equal(5m, buyer1.RemainingQuantity);
+        Assert.Equal(95.00m, book.BestBid());
+
+    }
 
 }

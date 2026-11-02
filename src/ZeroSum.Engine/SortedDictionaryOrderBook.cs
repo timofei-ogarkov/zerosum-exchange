@@ -40,7 +40,7 @@ public class SortedDictionaryOrderBook : IOrderBook
         {
             while (order.RemainingQuantity > 0 && _bids.Count > 0 && _bids.Keys.Last()>= price)
             {
-                var bestBid = _bids.Keys.First();
+                var bestBid = _bids.Keys.Last();
                 var queue = _bids[bestBid];
                 var resting = queue.Peek();
                 decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);

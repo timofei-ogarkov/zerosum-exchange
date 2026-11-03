@@ -157,4 +157,33 @@ public class OrderBookTests
 
     }
 
+    [Fact]
+    public void QuantityAt_SumsAllOrdersAtPrice()
+    {
+        var book = CreateBook();
+        var buyer1 = CreateOrder(Side.Buy, 99.00m, 1, 3m);
+        var buyer2 = CreateOrder(Side.Buy, 99.00m, 2, 4m);
+        var buyer3 = CreateOrder(Side.Buy, 98.00m, 3, 10m);
+
+        book.Add(buyer1);
+        book.Add(buyer2);
+        book.Add(buyer3);
+
+        decimal buyAt99 = book.QuantityAt(Side.Buy, 99.00m);
+        decimal sellAt99 = book.QuantityAt(Side.Sell, 99.00m);
+
+        Assert.Equal(7m, buyAt99);
+        Assert.Equal(0m, sellAt99);
+    }
+    [Fact]
+    public void QuantityAt_CountsOnlyRemainingQuantity()
+    {
+        var book = CreateBook();
+        var buyer1 = CreateOrder(Side.Buy, 99.00m, 1, 10m);
+        var seller1 = CreateOrder(Side.Sell, 99.00m, 2, 4m);
+        book.Add(buyer1);
+        var trades = book.Add(seller1);
+        var trade = Assert.Single(trades);
+        Assert.Equal(6m, book.QuantityAt(Side.Buy, 99.00m));
+    }
 }

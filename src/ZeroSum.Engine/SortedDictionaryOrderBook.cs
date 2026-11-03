@@ -19,13 +19,13 @@ public class SortedDictionaryOrderBook : IOrderBook
         while (order.RemainingQuantity > 0)
         {
             decimal? best = isBuy ? BestAsk() : BestBid();
-            if (best is null)
+            if (best is null)//если ли лучшая цена
             {
                 break;
             }
 
             decimal bestPrice = best.Value;
-            bool crosses = isBuy ? bestPrice <= price : bestPrice >= price;
+            bool crosses = isBuy ? bestPrice <= price : bestPrice >= price; //допустимость цен по лимитам
             if (!crosses)
             {
                 break;
@@ -81,5 +81,19 @@ public class SortedDictionaryOrderBook : IOrderBook
             return null;
         }
         return _asks.Keys.First();
+    }
+
+    public decimal QuantityAt(Side side, decimal price)
+    {
+        var shelf = side == Side.Buy ? _bids : _asks;
+        if (!shelf.ContainsKey(price))
+        {
+            return 0m;
+        }
+        decimal total = 0m;
+        foreach(var order in shelf[price])
+        {
+            total +=order.RemainingQuantity;        }
+        return total;
     }
 }

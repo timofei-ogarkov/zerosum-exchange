@@ -186,4 +186,14 @@ public class OrderBookTests
         var trade = Assert.Single(trades);
         Assert.Equal(6m, book.QuantityAt(Side.Buy, 99.00m));
     }
+
+    [Fact]
+    public void Add_PriceNotOnTick_Throws()
+    {
+        var book = CreateBook();
+        var order = CreateOrder(Side.Buy, 99.005m);
+
+        Assert.Throws<ArgumentException>(() => book.Add(order));
+        Assert.Null(book.BestBid());
+    }
 }

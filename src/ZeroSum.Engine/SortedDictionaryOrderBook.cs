@@ -10,68 +10,62 @@ public class SortedDictionaryOrderBook : IOrderBook
         {
             throw new ArgumentException("Market orders cannot rest in the book", nameof(order));
         }
+
         decimal price = order.Price.Value;
         var trades = new List<Trade>();
-        if(order.OrderSide == Side.Buy)
+        bool isBuy = order.OrderSide == Side.Buy;
+        var opposite = isBuy ? _asks : _bids;
+
+        while (order.RemainingQuantity > 0)
         {
-        while (order.RemainingQuantity > 0 && _asks.Count > 0 && _asks.Keys.First()<= price)
+            decimal? best = isBuy ? BestAsk() : BestBid();
+            if (best is null)
             {
-                var bestAsk = _asks.Keys.First();
-                var queue = _asks[bestAsk];
-                var resting = queue.Peek();
-                decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
-                order.Fill(quantity);
-                resting.Fill(quantity);
-                trades.Add(new Trade(order.Id, resting.Id, bestAsk, quantity));
+                break;
+            }
 
-                if (resting.IsFilled)
-                {
-                    queue.Dequeue();
-                }
+            decimal bestPrice = best.Value;
+            bool crosses = isBuy ? bestPrice <= price : bestPrice >= price;
+            if (!crosses)
+            {
+                break;
+            }
 
-                if (queue.Count == 0)
-                {
-                    _asks.Remove(bestAsk);
-                }
+            var queue = opposite[bestPrice];
+            var resting = queue.Peek();
+            decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
+            order.Fill(quantity);
+            resting.Fill(quantity);
 
+            var trade = isBuy
+                ? new Trade(order.Id, resting.Id, bestPrice, quantity)
+                : new Trade(resting.Id, order.Id, bestPrice, quantity);
+            trades.Add(trade);
+
+            if (resting.IsFilled)
+            {
+                queue.Dequeue();
+            }
+
+            if (queue.Count == 0)
+            {
+                opposite.Remove(bestPrice);
             }
         }
-        else
+
+        if (order.RemainingQuantity > 0)
         {
-            while (order.RemainingQuantity > 0 && _bids.Count > 0 && _bids.Keys.Last()>= price)
+            var own = isBuy ? _bids : _asks;
+            if (!own.ContainsKey(price))
             {
-                var bestBid = _bids.Keys.Last();
-                var queue = _bids[bestBid];
-                var resting = queue.Peek();
-                decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
-                order.Fill(quantity);
-                resting.Fill(quantity);
-                trades.Add(new Trade(resting.Id, order.Id, bestBid, quantity));
-
-                if (resting.IsFilled)
-                {
-                    queue.Dequeue();
-                }
-
-                if (queue.Count == 0)
-                {
-                    _bids.Remove(bestBid);
-                }
-
+                own.Add(price, new Queue<Order>());
             }
+            own[price].Enqueue(order);
         }
-        if(order.RemainingQuantity > 0)
-        {
-        var side = order.OrderSide == Side.Buy ? _bids : _asks;
-        if (!side.ContainsKey(price))
-        {
-            side.Add(price, new Queue<Order>());
 
-        }
-        side[price].Enqueue(order);
-        }
         return trades;
     }
+    
     public decimal? BestBid()
     {
         if (_bids.Count == 0)

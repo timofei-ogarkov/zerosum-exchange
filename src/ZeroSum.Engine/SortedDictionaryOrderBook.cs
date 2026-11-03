@@ -5,18 +5,28 @@ public class SortedDictionaryOrderBook : IOrderBook
     private readonly SortedDictionary<decimal, Queue<Order>> _bids = new();
     private readonly SortedDictionary<decimal, Queue<Order>> _asks = new();
     public const decimal TickSize = 0.01m;
+
     public List<Trade> Add(Order order)
     {
+        if (order.Quantity <= 0)
+        {
+            throw new ArgumentException("Quantity must be positive", nameof(order));
+        }
         if (order.Price is null)
         {
             throw new ArgumentException("Market orders cannot rest in the book", nameof(order));
         }
 
         decimal price = order.Price.Value;
+        if (price <= 0)
+        {
+            throw new ArgumentException("Price must be positive");
+        }
         if (price % TickSize != 0)
         {
             throw new ArgumentException("Price must be a multiple of the tick size", nameof(order));
         }
+
         var trades = new List<Trade>();
         bool isBuy = order.OrderSide == Side.Buy;
         var opposite = isBuy ? _asks : _bids;

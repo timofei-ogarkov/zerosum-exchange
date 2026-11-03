@@ -1,4 +1,5 @@
 namespace ZeroSum.Engine.Tests;
+
 public class OrderBookTests
 {
     private static IOrderBook CreateBook()
@@ -196,4 +197,24 @@ public class OrderBookTests
         Assert.Throws<ArgumentException>(() => book.Add(order));
         Assert.Null(book.BestBid());
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void Add_NonPositivePrice_Throws(int price)
+    {
+        var book = CreateBook();
+        Assert.Throws<ArgumentException>(() => book.Add(CreateOrder(Side.Buy, price)));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void Add_NonPositiveQuantity_Throws(int quantity)
+    {
+        var book = CreateBook();
+        Assert.Throws<ArgumentException>(() => book.Add(CreateOrder(Side.Sell, 99.00m, 1, quantity)));
+    }
+
+
 }

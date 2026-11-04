@@ -30,16 +30,16 @@ public class OrderBookTests
     public void BestBid_IsHighestBuyPrice()
     {
         var book = CreateBook();
-        book.Add(CreateOrder(Side.Buy, 99.00m));
-        book.Add(CreateOrder(Side.Buy, 99.50m));
+        book.Add(CreateOrder(Side.Buy, 99.00m, 1));
+        book.Add(CreateOrder(Side.Buy, 99.50m, 2));
         Assert.Equal(99.50m, book.BestBid());
     }
     [Fact]
     public void BestAsk_IsLowestSellPrice()
     {
         var book = CreateBook();
-        book.Add(CreateOrder(Side.Sell, 101.00m));
-        book.Add(CreateOrder(Side.Sell, 100.50m));
+        book.Add(CreateOrder(Side.Sell, 101.00m, 1));
+        book.Add(CreateOrder(Side.Sell, 100.50m, 2));
         Assert.Equal(100.50m, book.BestAsk());
     }
     [Fact]
@@ -216,5 +216,41 @@ public class OrderBookTests
         Assert.Throws<ArgumentException>(() => book.Add(CreateOrder(Side.Sell, 99.00m, 1, quantity)));
     }
 
+    [Fact]
+    public void Cancel_RestingOrder_RemovesItFromBook()
+    {
+        var book = CreateBook();
+        var buyer = CreateOrder(Side.Buy, 99.00m, 1);
+        book.Add(buyer);
 
+        bool canceled = book.Cancel(1);
+        Assert.True(canceled);
+        Assert.Null(book.BestBid());
+    }
+    [Fact]
+    public void Cancel_UnknownId_ReturnsFalse()
+    {
+        var book = CreateBook();
+        bool canceled = book.Cancel(42);
+        Assert.False(canceled);
+    }
+    [Fact]
+    public void Cancel_MiddleOfQueue_KeepsTimePriority()
+    {
+        var book = CreateBook();
+        var buyer = CreateOrder(Side.Buy, 99.00m, 1);
+        var buyer2 = CreateOrder(Side.Buy, 99.00m, 2);
+        var buyer3 = CreateOrder(Side.Buy, 99.00m, 3);
+        book.Add(buyer);
+        book.Add(buyer2);
+        book.Add(buyer3);
+        book.Cancel(2);
+        var seller = CreateOrder(Side.Sell, 99.00m, 4);
+        var trades = book.Add(seller);
+        var trade = Assert.Single(trades);
+        Assert.Equal(1, trade.BuyOrderId);
+
+        Assert.Equal(5m, book.QuantityAt(Side.Buy, 99.00m));
+        
+    }
 }

@@ -6,4 +6,5 @@ public interface IOrderBook
     decimal? BestBid();
     decimal? BestAsk();
     decimal QuantityAt(Side side, decimal price);
+    bool Cancel(long orderId);
 }

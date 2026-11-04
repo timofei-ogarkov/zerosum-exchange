@@ -4,6 +4,7 @@ public class SortedDictionaryOrderBook : IOrderBook
 {
     private readonly SortedDictionary<decimal, Queue<Order>> _bids = new();
     private readonly SortedDictionary<decimal, Queue<Order>> _asks = new();
+    private readonly Dictionary<long, Order> _orders = new();
     public const decimal TickSize = 0.01m;
 
     public List<Trade> Add(Order order)
@@ -20,7 +21,7 @@ public class SortedDictionaryOrderBook : IOrderBook
         decimal price = order.Price.Value;
         if (price <= 0)
         {
-            throw new ArgumentException("Price must be positive");
+            throw new ArgumentException("Price must be positive", nameof(order));
         }
         if (price % TickSize != 0)
         {
@@ -60,6 +61,7 @@ public class SortedDictionaryOrderBook : IOrderBook
             if (resting.IsFilled)
             {
                 queue.Dequeue();
+                _orders.Remove(resting.Id); 
             }
 
             if (queue.Count == 0)
@@ -76,6 +78,7 @@ public class SortedDictionaryOrderBook : IOrderBook
                 own.Add(price, new Queue<Order>());
             }
             own[price].Enqueue(order);
+            _orders.Add(order.Id, order);
         }
 
         return trades;
@@ -111,5 +114,40 @@ public class SortedDictionaryOrderBook : IOrderBook
             total += order.RemainingQuantity;
         }
         return total;
+    }
+    public bool Cancel(long orderId)
+    {
+        if (!_orders.ContainsKey(orderId))
+        {
+            return false;
+        }
+
+        var order = _orders[orderId];
+        var shelf = order.OrderSide == Side.Buy ? _bids : _asks;
+
+        decimal price = order.Price!.Value;
+
+        var oldQueue = shelf[price];
+        var newQueue = new Queue<Order>();
+
+        foreach (var queued in oldQueue)
+        {
+            if (queued.Id != orderId)
+            {
+                newQueue.Enqueue(queued);
+            }
+        }
+
+        if (newQueue.Count == 0)
+        {
+            shelf.Remove(price);
+        }
+        
+        else
+        {
+            shelf[price] = newQueue;
+        }
+        _orders.Remove(orderId);
+        return true;
     }
 }

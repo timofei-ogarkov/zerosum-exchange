@@ -261,5 +261,6 @@ public class OrderBookTests
         var sell1 = CreateOrder(Side.Sell, 99.00m, 1);
         book.Add(buy1);
         Assert.Throws<ArgumentException>(() => book.Add(sell1));
+        Assert.Equal(5m, book.QuantityAt(Side.Buy, 99.00m));
     }
 }

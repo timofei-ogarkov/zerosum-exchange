@@ -253,4 +253,13 @@ public class OrderBookTests
         Assert.Equal(5m, book.QuantityAt(Side.Buy, 99.00m));
         
     }
+    [Fact]
+    public void Add_DuplicateId_Throws()
+    {
+        var book = CreateBook();
+        var buy1 = CreateOrder(Side.Buy, 99.00m, 1);
+        var sell1 = CreateOrder(Side.Sell, 99.00m, 1);
+        book.Add(buy1);
+        Assert.Throws<ArgumentException>(() => book.Add(sell1));
+    }
 }

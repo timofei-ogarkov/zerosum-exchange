@@ -9,6 +9,10 @@ public class SortedDictionaryOrderBook : IOrderBook
 
     public List<Trade> Add(Order order)
     {
+        if (_orders.ContainsKey(order.Id))
+        {
+            throw new ArgumentException("Order id already exists", nameof(order));
+        }
         if (order.Quantity <= 0)
         {
             throw new ArgumentException("Quantity must be positive", nameof(order));

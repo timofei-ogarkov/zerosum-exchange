@@ -17,17 +17,19 @@ public class SortedDictionaryOrderBook : IOrderBook
         {
             throw new ArgumentException("Quantity must be positive", nameof(order));
         }
-        if (order.Price is null)
+
+        bool isMarket = order.Type == OrderType.Market;
+        if (!isMarket && order.Price is null)
         {
-            throw new ArgumentException("Market orders cannot rest in the book", nameof(order));
+            throw new ArgumentException("Limit orders must have a price", nameof(order));
         }
 
-        decimal price = order.Price.Value;
-        if (price <= 0)
+        decimal price = order.Price ?? 0m;
+        if (!isMarket && price <= 0)
         {
             throw new ArgumentException("Price must be positive", nameof(order));
         }
-        if (price % TickSize != 0)
+        if (!isMarket && price % TickSize != 0)
         {
             throw new ArgumentException("Price must be a multiple of the tick size", nameof(order));
         }
@@ -45,7 +47,7 @@ public class SortedDictionaryOrderBook : IOrderBook
             }
 
             decimal bestPrice = best.Value;
-            bool crosses = isBuy ? bestPrice <= price : bestPrice >= price; //допустимость цен по лимитам
+            bool crosses = isMarket || (isBuy ? bestPrice <= price : bestPrice >= price); //допустимость цен по лимитам
             if (!crosses)
             {
                 break;
@@ -74,7 +76,7 @@ public class SortedDictionaryOrderBook : IOrderBook
             }
         }
 
-        if (order.RemainingQuantity > 0)
+        if (order.RemainingQuantity > 0 && !isMarket)
         {
             var own = isBuy ? _bids : _asks;
             if (!own.ContainsKey(price))

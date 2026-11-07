@@ -19,6 +19,18 @@ public class OrderBookTests
             Timestamp = DateTimeOffset.UtcNow
         };
     }
+    private static Order CreateMarketOrder(Side side, long id = 1, decimal quantity = 5m)
+    {
+        return new Order
+        {
+            Id = id,
+            TraderId = "anna",
+            OrderSide = side,
+            Type = OrderType.Market,
+            Quantity = quantity,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+    }
     [Fact]
     public void EmptyBook_HasNoBestPrices()
     {
@@ -43,7 +55,7 @@ public class OrderBookTests
         Assert.Equal(100.50m, book.BestAsk());
     }
     [Fact]
-    public void Add_MarketOrder_Throws()
+    public void Add_LimitOrderWithoutPrice_Throws()
     {
         var book = CreateBook();
         var order = new Order
@@ -51,7 +63,7 @@ public class OrderBookTests
             Id = 1,
             TraderId = "anna",
             OrderSide = Side.Buy,
-            Type = OrderType.Market,
+            Type = OrderType.Limit,
             Quantity = 5m,
             Timestamp = DateTimeOffset.UtcNow
         };
@@ -262,5 +274,17 @@ public class OrderBookTests
         book.Add(buy1);
         Assert.Throws<ArgumentException>(() => book.Add(sell1));
         Assert.Equal(5m, book.QuantityAt(Side.Buy, 99.00m));
+    }
+    [Fact]
+    public void MarketBuy_FillsAgainstBestAsk()
+    {
+        var book = CreateBook();
+        var sell1 = CreateOrder(Side.Sell, 100.50m, 1);
+        book.Add(sell1);
+        var trades = book.Add(CreateMarketOrder(Side.Buy, 2, 3m));
+        var trade = Assert.Single(trades);
+        Assert.Equal(100.50m, trade.Price);
+        Assert.Equal(3m, trade.Quantity);
+        Assert.Equal(2m, book.QuantityAt(Side.Sell, 100.50m));
     }
 }

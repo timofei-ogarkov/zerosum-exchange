@@ -15,10 +15,11 @@ No real money, no crypto. It is a training ground and an engineering showcase.
 
 - `Order`: an order with side, type, price and quantities. Filling more than the remaining quantity is rejected.
 - `IOrderBook`: the contract every order book implements. All order book tests run against it, so another implementation can be swapped in and checked by the same tests.
-- `SortedDictionaryOrderBook`: price levels stored in a sorted dictionary, each level a FIFO queue. Incoming limit orders are matched against the opposite side with price-time priority, can walk several price levels, and any unfilled remainder rests in the book. Reports the best bid and best ask.
+- `SortedDictionaryOrderBook`: price levels stored in a sorted dictionary, each level a FIFO queue. Incoming limit orders are matched against the opposite side with price-time priority, can walk several price levels, and any unfilled remainder rests in the book. Market orders take the best available price level by level; whatever cannot be filled is dropped, because a market order never rests. Reports the best bid, the best ask and the total quantity at a price level (`QuantityAt`). A resting order can be cancelled by id (`Cancel`); the book keeps an id-to-order index so the lookup takes one step.
+- Input validation in `Add`: a duplicate order id, a non-positive quantity, a limit order without a price, a non-positive price or a price that is not on the 0.01 tick are all rejected before the book is touched.
 - `Trade`: buyer order, seller order, price and quantity. Every `Add` returns the trades it produced.
-- 13 unit tests with xUnit: order fills, best prices, matching in both directions, multi-level matching, partial fills and first-in-first-out at the same price.
-- **Next:** a 0.01 price tick rule, total quantity per price level, then market orders and cancellation.
+- 28 unit tests with xUnit: order fills, best prices, matching in both directions, multi-level matching, partial fills, first-in-first-out at the same price, quantity per level, cancellation, input validation, and market orders (fill at the best prices, partial fill against a thin book, no trades against an empty book).
+- **Next:** a second order book on a fixed price grid with a bitmap for finding the best price (`BitmapOrderBook`), checked by the same `IOrderBook` tests and benchmarked against `SortedDictionaryOrderBook`.
 
 The walkthrough below describes how the finished exchange will behave.
 
@@ -134,7 +135,7 @@ Browser (SvelteKit) / Bots
 
 - [x] Order model and order book with unit tests
 - [x] Order matching for limit orders with price-time priority
-- [ ] Price tick rule, market orders, cancellation
+- [x] Price tick rule, market orders, cancellation
 - [ ] Price-grid order book with bitmap search, benchmarked against `SortedDictionaryOrderBook`
 - [ ] API, accounts, fund reservation, double-entry ledger
 - [ ] Live UI: order book, trades, order form, balances

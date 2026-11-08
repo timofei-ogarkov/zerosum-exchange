@@ -6,6 +6,7 @@ public class OrderBookTests
     {
         return new SortedDictionaryOrderBook();
     }
+
     private static Order CreateOrder(Side side, decimal price, long id = 1, decimal quantity = 5m)
     {
         return new Order
@@ -19,6 +20,7 @@ public class OrderBookTests
             Timestamp = DateTimeOffset.UtcNow
         };
     }
+
     private static Order CreateMarketOrder(Side side, long id = 1, decimal quantity = 5m)
     {
         return new Order
@@ -31,6 +33,7 @@ public class OrderBookTests
             Timestamp = DateTimeOffset.UtcNow
         };
     }
+
     [Fact]
     public void EmptyBook_HasNoBestPrices()
     {
@@ -38,6 +41,7 @@ public class OrderBookTests
         Assert.Null(book.BestBid());
         Assert.Null(book.BestAsk());
     }
+
     [Fact]
     public void BestBid_IsHighestBuyPrice()
     {
@@ -46,6 +50,7 @@ public class OrderBookTests
         book.Add(CreateOrder(Side.Buy, 99.50m, 2));
         Assert.Equal(99.50m, book.BestBid());
     }
+
     [Fact]
     public void BestAsk_IsLowestSellPrice()
     {
@@ -54,6 +59,7 @@ public class OrderBookTests
         book.Add(CreateOrder(Side.Sell, 100.50m, 2));
         Assert.Equal(100.50m, book.BestAsk());
     }
+
     [Fact]
     public void Add_LimitOrderWithoutPrice_Throws()
     {
@@ -69,6 +75,7 @@ public class OrderBookTests
         };
         Assert.Throws<ArgumentException>(() => book.Add(order));
     }
+
     [Fact]
     public void Buy_CrossingSell_CreatesTrade()
     {
@@ -85,6 +92,7 @@ public class OrderBookTests
         Assert.Null(book.BestBid());
         Assert.Null(book.BestAsk());
     }
+
     [Fact]
     public void Sell_CrossingBuy_CreatesTrade()
     {
@@ -99,6 +107,7 @@ public class OrderBookTests
         Assert.Null(book.BestBid());
         Assert.Null(book.BestAsk());
     }
+
     [Fact]
     public void Buy_WalksTwoPriceLevels()
     {
@@ -188,6 +197,7 @@ public class OrderBookTests
         Assert.Equal(7m, buyAt99);
         Assert.Equal(0m, sellAt99);
     }
+
     [Fact]
     public void QuantityAt_CountsOnlyRemainingQuantity()
     {
@@ -239,6 +249,7 @@ public class OrderBookTests
         Assert.True(canceled);
         Assert.Null(book.BestBid());
     }
+
     [Fact]
     public void Cancel_UnknownId_ReturnsFalse()
     {
@@ -246,6 +257,7 @@ public class OrderBookTests
         bool canceled = book.Cancel(42);
         Assert.False(canceled);
     }
+
     [Fact]
     public void Cancel_MiddleOfQueue_KeepsTimePriority()
     {
@@ -263,8 +275,9 @@ public class OrderBookTests
         Assert.Equal(1, trade.BuyOrderId);
 
         Assert.Equal(5m, book.QuantityAt(Side.Buy, 99.00m));
-        
+
     }
+
     [Fact]
     public void Add_DuplicateId_Throws()
     {
@@ -275,6 +288,7 @@ public class OrderBookTests
         Assert.Throws<ArgumentException>(() => book.Add(sell1));
         Assert.Equal(5m, book.QuantityAt(Side.Buy, 99.00m));
     }
+
     [Fact]
     public void MarketBuy_FillsAgainstBestAsk()
     {
@@ -287,6 +301,7 @@ public class OrderBookTests
         Assert.Equal(3m, trade.Quantity);
         Assert.Equal(2m, book.QuantityAt(Side.Sell, 100.50m));
     }
+
     [Fact]
     public void MarketBuy_BiggerThanBook_FillsPartiallyAndDoesNotRest()
     {
@@ -300,6 +315,7 @@ public class OrderBookTests
         Assert.Null(book.BestAsk());
         Assert.False(book.Cancel(2));
     }
+
     [Fact]
     public void MarketOrder_EmptyBook_NoTradesAndNothingRests()
     {

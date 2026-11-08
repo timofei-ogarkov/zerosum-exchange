@@ -41,13 +41,13 @@ public class SortedDictionaryOrderBook : IOrderBook
         while (order.RemainingQuantity > 0)
         {
             decimal? best = isBuy ? BestAsk() : BestBid();
-            if (best is null)//если ли лучшая цена
+            if (best is null)
             {
                 break;
             }
 
             decimal bestPrice = best.Value;
-            bool crosses = isMarket || (isBuy ? bestPrice <= price : bestPrice >= price); //допустимость цен по лимитам
+            bool crosses = isMarket || (isBuy ? bestPrice <= price : bestPrice >= price);
             if (!crosses)
             {
                 break;
@@ -67,7 +67,7 @@ public class SortedDictionaryOrderBook : IOrderBook
             if (resting.IsFilled)
             {
                 queue.Dequeue();
-                _orders.Remove(resting.Id); 
+                _orders.Remove(resting.Id);
             }
 
             if (queue.Count == 0)
@@ -98,6 +98,7 @@ public class SortedDictionaryOrderBook : IOrderBook
         }
         return _bids.Keys.Last();
     }
+
     public decimal? BestAsk()
     {
         if (_asks.Count == 0)
@@ -121,6 +122,7 @@ public class SortedDictionaryOrderBook : IOrderBook
         }
         return total;
     }
+
     public bool Cancel(long orderId)
     {
         if (!_orders.ContainsKey(orderId))
@@ -148,7 +150,7 @@ public class SortedDictionaryOrderBook : IOrderBook
         {
             shelf.Remove(price);
         }
-        
+
         else
         {
             shelf[price] = newQueue;

@@ -1,11 +1,8 @@
 namespace ZeroSum.Engine.Tests;
 
-public class OrderBookTests
+public abstract class OrderBookTests
 {
-    private static IOrderBook CreateBook()
-    {
-        return new SortedDictionaryOrderBook();
-    }
+    protected abstract IOrderBook CreateBook();
 
     private static Order CreateOrder(Side side, decimal price, long id = 1, decimal quantity = 5m)
     {

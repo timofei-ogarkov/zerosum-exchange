@@ -300,4 +300,15 @@ public class OrderBookTests
         Assert.Null(book.BestAsk());
         Assert.False(book.Cancel(2));
     }
+    [Fact]
+    public void MarketOrder_EmptyBook_NoTradesAndNothingRests()
+    {
+        var book = CreateBook();
+        var sell1 = CreateMarketOrder(Side.Sell, 1, 5m);
+        var trades = book.Add(sell1);
+        Assert.Empty(trades);
+        Assert.Null(book.BestBid());
+        Assert.Null(book.BestAsk());
+        Assert.False(book.Cancel(1));
+    }
 }

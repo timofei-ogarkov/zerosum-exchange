@@ -287,4 +287,17 @@ public class OrderBookTests
         Assert.Equal(3m, trade.Quantity);
         Assert.Equal(2m, book.QuantityAt(Side.Sell, 100.50m));
     }
+    [Fact]
+    public void MarketBuy_BiggerThanBook_FillsPartiallyAndDoesNotRest()
+    {
+        var book = CreateBook();
+        var sell1 = CreateOrder(Side.Sell, 100.50m, 1);
+        book.Add(sell1);
+        var trades = book.Add(CreateMarketOrder(Side.Buy, 2, 8m));
+        var trade = Assert.Single(trades);
+        Assert.Equal(5m, trade.Quantity);
+        Assert.Null(book.BestBid());
+        Assert.Null(book.BestAsk());
+        Assert.False(book.Cancel(2));
+    }
 }

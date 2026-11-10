@@ -89,7 +89,20 @@ public class BitmapOrderBook : IOrderBook
     }
     public decimal QuantityAt(Side side, decimal price)
     {
-        throw new NotImplementedException();
+        int position = ToPosition(price);
+        bool isBuy = side == Side.Buy;
+        var levels = isBuy ? _bidLevels : _askLevels;
+        if (!levels.ContainsKey(position))
+        {
+            return 0m;
+        }
+        decimal total = 0m;
+        foreach (var order in levels[position])
+        {
+            total += order.RemainingQuantity;
+        }
+        return total;
+
     }
     public bool Cancel(long orderId)
     {

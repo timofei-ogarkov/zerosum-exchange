@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Numerics;
 namespace ZeroSum.Engine;
 
@@ -106,7 +107,36 @@ public class BitmapOrderBook : IOrderBook
     }
     public bool Cancel(long orderId)
     {
-        throw new NotImplementedException();
+        if (!_orders.ContainsKey(orderId))
+        {
+            return false;
+        }
+
+        var order = _orders[orderId];
+        bool isBuy = order.OrderSide == Side.Buy;
+        var levels = isBuy ? _bidLevels : _askLevels;
+        int position = ToPosition(order.Price!.Value);  
+        var oldQueue = levels[position];
+        var newQueue = new Queue<Order>();
+
+        foreach (var queued in oldQueue)
+        {
+            if (queued.Id != orderId)
+            {
+                newQueue.Enqueue(queued);
+            }
+        }
+        if (newQueue.Count == 0)
+        {
+            levels.Remove(position);
+            ClearBit(order.OrderSide, position);
+        }
+        else
+        {
+            levels[position] = newQueue;
+        }
+        _orders.Remove(orderId);
+        return true;
     }
     private void SetBit(Side side, int position)
     {
@@ -123,4 +153,23 @@ public class BitmapOrderBook : IOrderBook
             _askSummary |= 1UL << wordIndex;
         }
     }
+    private void ClearBit(Side side, int position)
+    {
+        int wordIndex = position / 64;
+        int bitIndex = position % 64;
+        var words = side == Side.Buy ? _bidWords : _askWords;
+        words[wordIndex] &= ~(1UL << bitIndex);
+        if(words[wordIndex] == 0)
+        {
+            if (side == Side.Buy)
+            {
+                _bidSummary &= ~(1UL << wordIndex);
+            }
+            else
+            {
+                _askSummary &= ~(1UL << wordIndex);
+            }
+        }
+    }
+
 }

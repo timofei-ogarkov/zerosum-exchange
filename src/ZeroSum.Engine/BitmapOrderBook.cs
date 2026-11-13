@@ -46,25 +46,67 @@ public class BitmapOrderBook : IOrderBook
         {
             throw new ArgumentException("Price must be a multiple of the tick size", nameof(order));
         }
-        if (isMarket)
-        {
-            throw new ArgumentException("Market orders are not supported yet", nameof(order));
-        }
         int position = ToPosition(price);
-        if(position < 0 || position >= Levels)
+        if (!isMarket && (position < 0 || position >= Levels))
         {
             throw new ArgumentException("Price is outside the book's price grid", nameof(order));
         }
         bool isBuy = order.OrderSide == Side.Buy;
-        var levels = isBuy ? _bidLevels : _askLevels;
-        if (!levels.ContainsKey(position))
+        var trades = new List<Trade>();
+        var oppositeLevels = isBuy ? _askLevels : _bidLevels;
+        var oppositeSide = isBuy ? Side.Sell : Side.Buy;
+
+        while (order.RemainingQuantity > 0)
         {
-            levels.Add(position, new Queue<Order>()); 
-            SetBit(order.OrderSide, position);
+            decimal? best = isBuy ? BestAsk() : BestBid();
+            if (best is null)
+            {
+                break;
+            }
+
+            decimal bestPrice = best.Value;
+            bool crosses = isMarket || (isBuy ? bestPrice <= price : bestPrice >= price);
+            if (!crosses)
+            {
+                break;
+            }
+
+            var queue = oppositeLevels[ToPosition(bestPrice)];
+            var resting = queue.Peek();
+            decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
+            order.Fill(quantity);
+            resting.Fill(quantity);
+
+            var trade = isBuy
+                ? new Trade(order.Id, resting.Id, bestPrice, quantity)
+                : new Trade(resting.Id, order.Id, bestPrice, quantity);
+            trades.Add(trade);
+
+            if (resting.IsFilled)
+            {
+                queue.Dequeue();
+                _orders.Remove(resting.Id);
+            }
+
+            if (queue.Count == 0)
+            {
+                oppositeLevels.Remove(ToPosition(bestPrice));
+                ClearBit(oppositeSide, ToPosition(bestPrice));
+            }
         }
-        levels[position].Enqueue(order);
-        _orders.Add(order.Id, order);
-        return new List<Trade>();
+        if (order.RemainingQuantity > 0 && !isMarket)
+        {
+            var levels = isBuy ? _bidLevels : _askLevels;
+            if (!levels.ContainsKey(position))
+            {
+                levels.Add(position, new Queue<Order>());
+                SetBit(order.OrderSide, position);
+            }
+            levels[position].Enqueue(order);
+            _orders.Add(order.Id, order);
+        }
+
+        return trades;
     }
     public decimal? BestBid()
     {
@@ -115,7 +157,7 @@ public class BitmapOrderBook : IOrderBook
         var order = _orders[orderId];
         bool isBuy = order.OrderSide == Side.Buy;
         var levels = isBuy ? _bidLevels : _askLevels;
-        int position = ToPosition(order.Price!.Value);  
+        int position = ToPosition(order.Price!.Value);
         var oldQueue = levels[position];
         var newQueue = new Queue<Order>();
 
@@ -159,7 +201,7 @@ public class BitmapOrderBook : IOrderBook
         int bitIndex = position % 64;
         var words = side == Side.Buy ? _bidWords : _askWords;
         words[wordIndex] &= ~(1UL << bitIndex);
-        if(words[wordIndex] == 0)
+        if (words[wordIndex] == 0)
         {
             if (side == Side.Buy)
             {

@@ -18,8 +18,17 @@ No real money, no crypto. It is a training ground and an engineering showcase.
 - `SortedDictionaryOrderBook`: price levels stored in a sorted dictionary, each level a FIFO queue. Incoming limit orders are matched against the opposite side with price-time priority, can walk several price levels, and any unfilled remainder rests in the book. Market orders take the best available price level by level; whatever cannot be filled is dropped, because a market order never rests. Reports the best bid, the best ask and the total quantity at a price level (`QuantityAt`). A resting order can be cancelled by id (`Cancel`); the book keeps an id-to-order index so the lookup takes one step.
 - Input validation in `Add`: a duplicate order id, a non-positive quantity, a limit order without a price, a non-positive price or a price that is not on the 0.01 tick are all rejected before the book is touched.
 - `Trade`: buyer order, seller order, price and quantity. Every `Add` returns the trades it produced.
-- 28 unit tests with xUnit: order fills, best prices, matching in both directions, multi-level matching, partial fills, first-in-first-out at the same price, quantity per level, cancellation, input validation, and market orders (fill at the best prices, partial fill against a thin book, no trades against an empty book).
-- **Next:** a second order book on a fixed price grid with a bitmap for finding the best price (`BitmapOrderBook`), checked by the same `IOrderBook` tests and benchmarked against `SortedDictionaryOrderBook`.
+- `BitmapOrderBook`: the same contract on a fixed price grid. A price becomes a cell index with one subtraction and one division (grid of 4096 levels at a 0.01 tick, 70.00 to 110.95 in this version; an order outside the grid is rejected). Occupied levels live in a dictionary keyed by cell index. A two-level bitmap (64 `ulong` words plus one summary word) marks occupied cells, so the best bid or ask is found with two `TrailingZeroCount`/`LeadingZeroCount` calls instead of a tree walk. Matching, market orders, `QuantityAt` and `Cancel` behave exactly as in the first book.
+- One test suite, two books: `OrderBookTests` is abstract and only its `CreateBook()` differs between the two subclasses, so every order book test runs against both implementations. 53 tests with xUnit, all green: order fills, best prices, matching in both directions, multi-level matching, partial fills, first-in-first-out at the same price, quantity per level, cancellation, input validation, market orders, and the grid boundary.
+- Benchmark (BenchmarkDotNet, Apple M5, .NET 10, Release): fill the book with 1,000 resting limit orders on 100 price levels per side, then send 1,000 crossing orders that produce 1,000 trades.
+
+  | Order book | Mean | per order |
+  |---|---:|---:|
+  | `BitmapOrderBook` | 365 µs | 0.18 µs |
+  | `SortedDictionaryOrderBook` | 1,216 µs | 0.61 µs |
+
+  One scenario, one machine: the bitmap book is 3.3x faster here because each `Add` costs integer arithmetic and two bit instructions instead of `decimal` comparisons down a tree. With many orders on a single price level the two books converge, since both then spend their time in the same FIFO queue. Run it yourself: `dotnet run -c Release --project bench/ZeroSum.Benchmarks`.
+- **Next:** a three-level bitmap for a wider price range, and a linked list per level so `Cancel` removes an order in one step instead of rebuilding the queue. Then the API, accounts and the double-entry ledger.
 
 The walkthrough below describes how the finished exchange will behave.
 
@@ -136,7 +145,7 @@ Browser (SvelteKit) / Bots
 - [x] Order model and order book with unit tests
 - [x] Order matching for limit orders with price-time priority
 - [x] Price tick rule, market orders, cancellation
-- [ ] Price-grid order book with bitmap search, benchmarked against `SortedDictionaryOrderBook`
+- [x] Price-grid order book with bitmap search, benchmarked against `SortedDictionaryOrderBook`
 - [ ] API, accounts, fund reservation, double-entry ledger
 - [ ] Live UI: order book, trades, order form, balances
 - [ ] Bots and public demo

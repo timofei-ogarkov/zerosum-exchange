@@ -6,6 +6,7 @@ public class BitmapOrderBookTests : OrderBookTests
     {
         return new BitmapOrderBook();
     }
+
     [Fact]
     public void Add_PriceOutsideGrid_Throws()
     {

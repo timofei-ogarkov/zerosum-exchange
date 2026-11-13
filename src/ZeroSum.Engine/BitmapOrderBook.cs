@@ -108,6 +108,7 @@ public class BitmapOrderBook : IOrderBook
 
         return trades;
     }
+
     public decimal? BestBid()
     {
         if (_bidSummary == 0)
@@ -119,6 +120,7 @@ public class BitmapOrderBook : IOrderBook
         int position = wordIndex * 64 + bitIndex;
         return ToPrice(position);
     }
+
     public decimal? BestAsk()
     {
         if (_askSummary == 0)
@@ -130,6 +132,7 @@ public class BitmapOrderBook : IOrderBook
         int position = wordIndex * 64 + bitIndex;
         return ToPrice(position);
     }
+
     public decimal QuantityAt(Side side, decimal price)
     {
         int position = ToPosition(price);
@@ -147,6 +150,7 @@ public class BitmapOrderBook : IOrderBook
         return total;
 
     }
+
     public bool Cancel(long orderId)
     {
         if (!_orders.ContainsKey(orderId))
@@ -180,6 +184,7 @@ public class BitmapOrderBook : IOrderBook
         _orders.Remove(orderId);
         return true;
     }
+
     private void SetBit(Side side, int position)
     {
         int wordIndex = position / 64;
@@ -195,6 +200,7 @@ public class BitmapOrderBook : IOrderBook
             _askSummary |= 1UL << wordIndex;
         }
     }
+
     private void ClearBit(Side side, int position)
     {
         int wordIndex = position / 64;

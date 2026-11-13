@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/bench/">
+    <Project Path="bench/ZeroSum.Benchmarks/ZeroSum.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ZeroSum.Engine/ZeroSum.Engine.csproj" />
   </Folder>

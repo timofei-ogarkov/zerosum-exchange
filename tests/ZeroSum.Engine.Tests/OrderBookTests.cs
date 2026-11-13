@@ -4,7 +4,7 @@ public abstract class OrderBookTests
 {
     protected abstract IOrderBook CreateBook();
 
-    private static Order CreateOrder(Side side, decimal price, long id = 1, decimal quantity = 5m)
+    protected static Order CreateOrder(Side side, decimal price, long id = 1, decimal quantity = 5m)
     {
         return new Order
         {

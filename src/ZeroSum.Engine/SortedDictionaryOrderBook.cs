@@ -2,9 +2,9 @@ namespace ZeroSum.Engine;
 
 public class SortedDictionaryOrderBook : IOrderBook
 {
-    private readonly SortedDictionary<decimal, Queue<Order>> _bids = new();
-    private readonly SortedDictionary<decimal, Queue<Order>> _asks = new();
-    private readonly Dictionary<long, Order> _orders = new();
+    private readonly SortedDictionary<decimal, LinkedList<Order>> _bids = new();
+    private readonly SortedDictionary<decimal, LinkedList<Order>> _asks = new();
+    private readonly Dictionary<long, LinkedListNode<Order>> _orders = new();
     public const decimal TickSize = 0.01m;
 
     public List<Trade> Add(Order order)
@@ -54,7 +54,7 @@ public class SortedDictionaryOrderBook : IOrderBook
             }
 
             var queue = opposite[bestPrice];
-            var resting = queue.Peek();
+            var resting = queue.First!.Value;
             decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
             order.Fill(quantity);
             resting.Fill(quantity);
@@ -66,7 +66,7 @@ public class SortedDictionaryOrderBook : IOrderBook
 
             if (resting.IsFilled)
             {
-                queue.Dequeue();
+                queue.RemoveFirst();
                 _orders.Remove(resting.Id);
             }
 
@@ -81,10 +81,10 @@ public class SortedDictionaryOrderBook : IOrderBook
             var own = isBuy ? _bids : _asks;
             if (!own.ContainsKey(price))
             {
-                own.Add(price, new Queue<Order>());
+                own.Add(price, new LinkedList<Order>());
             }
-            own[price].Enqueue(order);
-            _orders.Add(order.Id, order);
+            var node = own[price].AddLast(order);
+            _orders.Add(order.Id, node);
         }
 
         return trades;
@@ -129,31 +129,19 @@ public class SortedDictionaryOrderBook : IOrderBook
         {
             return false;
         }
-
-        var order = _orders[orderId];
+        var node = _orders[orderId];
+        var order = node.Value;
         var shelf = order.OrderSide == Side.Buy ? _bids : _asks;
 
         decimal price = order.Price!.Value;
 
-        var oldQueue = shelf[price];
-        var newQueue = new Queue<Order>();
+        var level = shelf[price];
 
-        foreach (var queued in oldQueue)
-        {
-            if (queued.Id != orderId)
-            {
-                newQueue.Enqueue(queued);
-            }
-        }
+        level.Remove(node);
 
-        if (newQueue.Count == 0)
+        if (level.Count == 0)
         {
             shelf.Remove(price);
-        }
-
-        else
-        {
-            shelf[price] = newQueue;
         }
         _orders.Remove(orderId);
         return true;

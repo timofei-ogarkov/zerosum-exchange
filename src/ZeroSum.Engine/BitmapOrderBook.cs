@@ -6,17 +6,17 @@ public class BitmapOrderBook : IOrderBook
     public const decimal LowPrice = 0.00m;
     public const int Levels = 262144;
 
-    private readonly Dictionary<int, Queue<Order>> _bidLevels = new();
+    private readonly Dictionary<int, LinkedList<Order>> _bidLevels = new();
     private readonly ulong[] _bidWords = new ulong[4096];
     private readonly ulong[] _bidSummaries = new ulong[64];
     private ulong _bidTop;
 
-    private readonly Dictionary<int, Queue<Order>> _askLevels = new();
+    private readonly Dictionary<int, LinkedList<Order>> _askLevels = new();
     private readonly ulong[] _askWords = new ulong[4096];
     private readonly ulong[] _askSummaries = new ulong[64];
     private ulong _askTop;
 
-    private readonly Dictionary<long, Order> _orders = new();
+    private readonly Dictionary<long, LinkedListNode<Order>> _orders = new();
 
     private static int ToPosition(decimal price) => (int)((price - LowPrice) / SortedDictionaryOrderBook.TickSize);
     private static decimal ToPrice(int position) => LowPrice + position * SortedDictionaryOrderBook.TickSize;
@@ -72,8 +72,8 @@ public class BitmapOrderBook : IOrderBook
                 break;
             }
 
-            var queue = oppositeLevels[ToPosition(bestPrice)];
-            var resting = queue.Peek();
+            var level = oppositeLevels[ToPosition(bestPrice)];
+            var resting = level.First.Value;
             decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
             order.Fill(quantity);
             resting.Fill(quantity);
@@ -85,11 +85,11 @@ public class BitmapOrderBook : IOrderBook
 
             if (resting.IsFilled)
             {
-                queue.Dequeue();
+                level.RemoveFirst();
                 _orders.Remove(resting.Id);
             }
 
-            if (queue.Count == 0)
+            if (level.Count == 0)
             {
                 oppositeLevels.Remove(ToPosition(bestPrice));
                 ClearBit(oppositeSide, ToPosition(bestPrice));
@@ -100,11 +100,11 @@ public class BitmapOrderBook : IOrderBook
             var levels = isBuy ? _bidLevels : _askLevels;
             if (!levels.ContainsKey(position))
             {
-                levels.Add(position, new Queue<Order>());
+                levels.Add(position, new LinkedList<Order>());
                 SetBit(order.OrderSide, position);
             }
-            levels[position].Enqueue(order);
-            _orders.Add(order.Id, order);
+            var node = levels[position].AddLast(order);
+            _orders.Add(order.Id, node);
         }
 
         return trades;
@@ -162,29 +162,18 @@ public class BitmapOrderBook : IOrderBook
         {
             return false;
         }
-
-        var order = _orders[orderId];
+        var node = _orders[orderId];
+        var order = node.Value;
         bool isBuy = order.OrderSide == Side.Buy;
         var levels = isBuy ? _bidLevels : _askLevels;
         int position = ToPosition(order.Price!.Value);
-        var oldQueue = levels[position];
-        var newQueue = new Queue<Order>();
+        var level = levels[position];
 
-        foreach (var queued in oldQueue)
-        {
-            if (queued.Id != orderId)
-            {
-                newQueue.Enqueue(queued);
-            }
-        }
-        if (newQueue.Count == 0)
+        level.Remove(node);
+        if (level.Count == 0)
         {
             levels.Remove(position);
             ClearBit(order.OrderSide, position);
-        }
-        else
-        {
-            levels[position] = newQueue;
         }
         _orders.Remove(orderId);
         return true;

@@ -15,20 +15,20 @@ No real money, no crypto. It is a training ground and an engineering showcase.
 
 - `Order`: an order with side, type, price and quantities. Filling more than the remaining quantity is rejected.
 - `IOrderBook`: the contract every order book implements. All order book tests run against it, so another implementation can be swapped in and checked by the same tests.
-- `SortedDictionaryOrderBook`: price levels stored in a sorted dictionary, each level a FIFO queue. Incoming limit orders are matched against the opposite side with price-time priority, can walk several price levels, and any unfilled remainder rests in the book. Market orders take the best available price level by level; whatever cannot be filled is dropped, because a market order never rests. Reports the best bid, the best ask and the total quantity at a price level (`QuantityAt`). A resting order can be cancelled by id (`Cancel`); the book keeps an id-to-order index so the lookup takes one step.
+- `SortedDictionaryOrderBook`: price levels stored in a sorted dictionary, each level a FIFO queue. Incoming limit orders are matched against the opposite side with price-time priority, can walk several price levels, and any unfilled remainder rests in the book. Market orders take the best available price level by level; whatever cannot be filled is dropped, because a market order never rests. Reports the best bid, the best ask and the total quantity at a price level (`QuantityAt`). A resting order can be cancelled by id (`Cancel`): each price level is a `LinkedList<Order>`, and the id index stores the list node, so a cancel is one dictionary lookup and one node removal, whatever the depth of the level.
 - Input validation in `Add`: a duplicate order id, a non-positive quantity, a limit order without a price, a non-positive price or a price that is not on the 0.01 tick are all rejected before the book is touched.
 - `Trade`: buyer order, seller order, price and quantity. Every `Add` returns the trades it produced.
 - `BitmapOrderBook`: the same contract on a fixed price grid. A price becomes a cell index with one subtraction and one division (262,144 levels at a 0.01 tick, 0.00 to 2621.43; an order above the grid is rejected). Occupied levels live in a dictionary keyed by cell index. A three-level bitmap marks occupied cells: 4,096 `ulong` words, 64 summary words above them, one top word above those. The best bid or ask is three `TrailingZeroCount`/`LeadingZeroCount` calls, one per level, whatever the distance between occupied prices. Matching, market orders, `QuantityAt` and `Cancel` behave exactly as in the first book.
 - One test suite, two books: `OrderBookTests` is abstract and only its `CreateBook()` differs between the two subclasses, so every order book test runs against both implementations. 54 tests with xUnit, all green: order fills, best prices, matching in both directions, multi-level matching, partial fills, first-in-first-out at the same price, quantity per level, cancellation, input validation, market orders, the grid boundary, and best prices across far-apart summary words.
-- Benchmark (BenchmarkDotNet, Apple M5, .NET 10, Release). Two scenarios, each: 1,000 resting limit orders on 100 price levels per side, then 1,000 crossing orders that produce 1,000 trades. *Narrow*: levels 0.01 apart, all inside one summary word. *Wide*: levels 5.00 apart, spread over about 25 summary words per side.
+- Benchmark (BenchmarkDotNet, Apple M5, .NET 10, Release). Three scenarios. *Narrow* and *Wide*: 1,000 resting limit orders on 100 price levels per side, then 1,000 crossing orders that produce 1,000 trades; levels 0.01 apart inside one summary word, or 5.00 apart across about 25 summary words. *Cancel*: 1,000 orders on one price level, then 500 cancels from the middle of that level.
 
-  | Order book | Narrow | Wide |
-  |---|---:|---:|
-  | `BitmapOrderBook` | 368 µs | 370 µs |
-  | `SortedDictionaryOrderBook` | 1,218 µs | 1,220 µs |
+  | Order book | Narrow | Wide | Cancel |
+  |---|---:|---:|---:|
+  | `BitmapOrderBook` | 374 µs | 375 µs | 109 µs |
+  | `SortedDictionaryOrderBook` | 1,236 µs | 1,212 µs | 107 µs |
 
-  One machine, two scenarios: the bitmap book is 3.3x faster because each `Add` costs integer arithmetic and three bit instructions instead of `decimal` comparisons down a tree. Spreading prices across summary words costs it about 1 ns per order, so the third level is close to free. With many orders on a single price level the two books converge, since both then spend their time in the same FIFO queue. Run it yourself: `dotnet run -c Release --project bench/ZeroSum.Benchmarks`.
-- **Next:** a linked list per level so `Cancel` removes an order in one step instead of rebuilding the queue. Then the API, accounts and the double-entry ledger.
+  The bitmap book is 3.3x faster on matching because each `Add` costs integer arithmetic and three bit instructions instead of `decimal` comparisons down a tree; spreading prices across summary words costs about 1 ns per order. The cancel scenario took 2,400 µs on both books while levels were `Queue<Order>` and every cancel rebuilt the queue; with linked lists it is 22x cheaper, and most of the remaining time is the 1,000 inserts. With many orders on a single price level the matching scenarios converge, since both books then walk the same list. Run it yourself: `dotnet run -c Release --project bench/ZeroSum.Benchmarks`.
+- **Next:** the API, accounts with fund reservation, and the double-entry ledger.
 
 The walkthrough below describes how the finished exchange will behave.
 

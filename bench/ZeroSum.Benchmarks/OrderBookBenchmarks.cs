@@ -48,4 +48,25 @@ public class OrderBookBenchmarks
 
         return trades;
     }
+    [Benchmark]
+    public int FillThenMatchWideSpread()
+    {
+        var book = CreateBook();
+        long id = 1;
+
+        for (int i = 0; i < 500; i++)
+        {
+            book.Add(MakeOrder(id++, Side.Buy, 500.00m - (i % 100) * 5.00m));
+            book.Add(MakeOrder(id++, Side.Sell, 600.00m + (i % 100) * 5.00m));
+        }
+
+        int trades = 0;
+        for (int i = 0; i < 500; i++)
+        {
+            trades += book.Add(MakeOrder(id++, Side.Buy, 1100.00m)).Count;
+            trades += book.Add(MakeOrder(id++, Side.Sell, 1.00m)).Count;
+        }
+
+        return trades;
+    }
 }

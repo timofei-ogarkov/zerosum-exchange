@@ -1,19 +1,20 @@
-using System.Data.Common;
 using System.Numerics;
 namespace ZeroSum.Engine;
 
 public class BitmapOrderBook : IOrderBook
 {
-    public const decimal LowPrice = 70.00m;
-    public const int Levels = 4096;
+    public const decimal LowPrice = 0.00m;
+    public const int Levels = 262144;
 
     private readonly Dictionary<int, Queue<Order>> _bidLevels = new();
-    private readonly ulong[] _bidWords = new ulong[64];
-    private ulong _bidSummary;
+    private readonly ulong[] _bidWords = new ulong[4096];
+    private readonly ulong[] _bidSummaries = new ulong[64];
+    private ulong _bidTop;
 
     private readonly Dictionary<int, Queue<Order>> _askLevels = new();
-    private readonly ulong[] _askWords = new ulong[64];
-    private ulong _askSummary;
+    private readonly ulong[] _askWords = new ulong[4096];
+    private readonly ulong[] _askSummaries = new ulong[64];
+    private ulong _askTop;
 
     private readonly Dictionary<long, Order> _orders = new();
 
@@ -111,11 +112,13 @@ public class BitmapOrderBook : IOrderBook
 
     public decimal? BestBid()
     {
-        if (_bidSummary == 0)
+        if (_bidTop == 0)
         {
             return null;
         }
-        int wordIndex = 63 - BitOperations.LeadingZeroCount(_bidSummary);
+        int summaryIndex = 63 - BitOperations.LeadingZeroCount(_bidTop);
+        int summaryBit = 63 - BitOperations.LeadingZeroCount(_bidSummaries[summaryIndex]);
+        int wordIndex = summaryIndex * 64 + summaryBit;
         int bitIndex = 63 - BitOperations.LeadingZeroCount(_bidWords[wordIndex]);
         int position = wordIndex * 64 + bitIndex;
         return ToPrice(position);
@@ -123,11 +126,13 @@ public class BitmapOrderBook : IOrderBook
 
     public decimal? BestAsk()
     {
-        if (_askSummary == 0)
+        if (_askTop == 0)
         {
             return null;
         }
-        int wordIndex = BitOperations.TrailingZeroCount(_askSummary);
+        int summaryIndex = BitOperations.TrailingZeroCount(_askTop);
+        int summaryBit = BitOperations.TrailingZeroCount(_askSummaries[summaryIndex]);
+        int wordIndex = summaryIndex * 64 + summaryBit;
         int bitIndex = BitOperations.TrailingZeroCount(_askWords[wordIndex]);
         int position = wordIndex * 64 + bitIndex;
         return ToPrice(position);
@@ -189,15 +194,19 @@ public class BitmapOrderBook : IOrderBook
     {
         int wordIndex = position / 64;
         int bitIndex = position % 64;
+        int summaryIndex = wordIndex / 64;
+        int summaryBit = wordIndex % 64;
         var words = side == Side.Buy ? _bidWords : _askWords;
+        var summaries = side == Side.Buy ? _bidSummaries : _askSummaries;
         words[wordIndex] |= 1UL << bitIndex;
+        summaries[summaryIndex] |= 1UL << summaryBit;
         if (side == Side.Buy)
         {
-            _bidSummary |= 1UL << wordIndex;
+            _bidTop |= 1UL << summaryIndex;
         }
         else
         {
-            _askSummary |= 1UL << wordIndex;
+            _askTop |= 1UL << summaryIndex;
         }
     }
 
@@ -205,17 +214,24 @@ public class BitmapOrderBook : IOrderBook
     {
         int wordIndex = position / 64;
         int bitIndex = position % 64;
+        int summaryIndex = wordIndex / 64;
+        int summaryBit = wordIndex % 64;
         var words = side == Side.Buy ? _bidWords : _askWords;
+        var summaries = side == Side.Buy ? _bidSummaries : _askSummaries;
         words[wordIndex] &= ~(1UL << bitIndex);
         if (words[wordIndex] == 0)
         {
-            if (side == Side.Buy)
+            summaries[summaryIndex] &= ~(1UL << summaryBit);
+            if (summaries[summaryIndex] == 0)
             {
-                _bidSummary &= ~(1UL << wordIndex);
-            }
-            else
-            {
-                _askSummary &= ~(1UL << wordIndex);
+                if (side == Side.Buy)
+                {
+                    _bidTop &= ~(1UL << summaryIndex);
+                }
+                else
+                {
+                    _askTop &= ~(1UL << summaryIndex);
+                }
             }
         }
     }

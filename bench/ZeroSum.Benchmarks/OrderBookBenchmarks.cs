@@ -69,4 +69,21 @@ public class OrderBookBenchmarks
 
         return trades;
     }
+    [Benchmark]
+    public int CancelFromMiddleOfDeepLevel()
+    {
+        var book = CreateBook();
+        long id = 1;
+
+        for (int i = 0; i < 1000; i++)
+        {
+            book.Add(MakeOrder(id++, Side.Buy, 100));
+        }
+        int canceled = 0;
+        for (int i = 0; i < 500; i++)
+        {
+            canceled += book.Cancel(250 + i) ? 1 : 0;
+        }
+        return canceled;
+    }
 }

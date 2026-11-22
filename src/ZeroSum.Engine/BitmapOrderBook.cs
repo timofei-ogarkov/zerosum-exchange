@@ -73,7 +73,7 @@ public class BitmapOrderBook : IOrderBook
             }
 
             var level = oppositeLevels[ToPosition(bestPrice)];
-            var resting = level.First.Value;
+            var resting = level.First!.Value;
             decimal quantity = Math.Min(order.RemainingQuantity, resting.RemainingQuantity);
             order.Fill(quantity);
             resting.Fill(quantity);

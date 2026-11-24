@@ -33,6 +33,15 @@ app.MapPost("/orders", (OrderRequest request) =>
     }
 });
 
+app.MapDelete("/orders/{id}", (long id) =>
+{
+    var cancelled = book.Cancel(id);
+    if (cancelled)
+    {
+        return Results.Ok();
+    }
+    return Results.NotFound();
+});
 app.Run();
 public partial class Program
 {

@@ -34,4 +34,13 @@ public class BookEndpointTests
       var body = await client.GetStringAsync("/book");
       Assert.Contains("\"bestAsk\":100.50", body);
     }
+    [Fact]
+    public async Task PostOrder_PriceOffTick_ReturnsBadRequest()
+    {
+      var factory = new WebApplicationFactory<Program>();
+      var client = factory.CreateClient();
+
+      var response = await client.PostAsJsonAsync("/orders", new {side = "Buy", type = "Limit", price = 100.005m, quantity = 5m});
+      Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

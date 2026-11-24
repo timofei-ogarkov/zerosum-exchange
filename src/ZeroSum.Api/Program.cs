@@ -11,6 +11,9 @@ long nextId = 1;
 app.MapGet("/book", () => new { bestBid = book.BestBid(), bestAsk = book.BestAsk() });
 app.MapPost("/orders", (OrderRequest request) =>
 {
+    try
+    {
+        
     var order = new Order
     {
         Id = nextId++,
@@ -22,7 +25,12 @@ app.MapPost("/orders", (OrderRequest request) =>
         Timestamp = DateTimeOffset.UtcNow
     };
     var trades = book.Add(order);
-    return new {orderId = order.Id, trades};
+    return Results.Ok(new { orderId = order.Id, trades});
+    }
+    catch(ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message});
+    }
 });
 
 app.Run();

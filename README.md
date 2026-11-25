@@ -19,7 +19,7 @@ No real money, no crypto. It is a training ground and an engineering showcase.
 - Input validation in `Add`: a duplicate order id, a non-positive quantity, a limit order without a price, a non-positive price or a price that is not on the 0.01 tick are all rejected before the book is touched.
 - `Trade`: buyer order, seller order, price and quantity. Every `Add` returns the trades it produced.
 - `BitmapOrderBook`: the same contract on a fixed price grid. A price becomes a cell index with one subtraction and one division (262,144 levels at a 0.01 tick, 0.00 to 2621.43; an order above the grid is rejected). Occupied levels live in a dictionary keyed by cell index. A three-level bitmap marks occupied cells: 4,096 `ulong` words, 64 summary words above them, one top word above those. The best bid or ask is three `TrailingZeroCount`/`LeadingZeroCount` calls, one per level, whatever the distance between occupied prices. Matching, market orders, `QuantityAt` and `Cancel` behave exactly as in the first book.
-- One test suite, two books: `OrderBookTests` is abstract and only its `CreateBook()` differs between the two subclasses, so every order book test runs against both implementations. 54 tests with xUnit, all green: order fills, best prices, matching in both directions, multi-level matching, partial fills, first-in-first-out at the same price, quantity per level, cancellation, input validation, market orders, the grid boundary, and best prices across far-apart summary words.
+- One test suite, two books: `OrderBookTests` is abstract and only its `CreateBook()` differs between the two subclasses, so every order book test runs against both implementations. 56 engine tests with xUnit, all green: order fills, best prices, matching in both directions, multi-level matching, partial fills, first-in-first-out at the same price, quantity per level, cancellation, input validation, market orders, the grid boundary, best prices across far-apart summary words, and the order book processor.
 - Benchmark (BenchmarkDotNet, Apple M5, .NET 10, Release). Three scenarios. *Narrow* and *Wide*: 1,000 resting limit orders on 100 price levels per side, then 1,000 crossing orders that produce 1,000 trades; levels 0.01 apart inside one summary word, or 5.00 apart across about 25 summary words. *Cancel*: 1,000 orders on one price level, then 500 cancels from the middle of that level.
 
   | Order book | Narrow | Wide | Cancel |
@@ -28,7 +28,18 @@ No real money, no crypto. It is a training ground and an engineering showcase.
   | `SortedDictionaryOrderBook` | 1,236 µs | 1,212 µs | 107 µs |
 
   The bitmap book is 3.3x faster on matching because each `Add` costs integer arithmetic and three bit instructions instead of `decimal` comparisons down a tree; spreading prices across summary words costs about 1 ns per order. The cancel scenario took 2,400 µs on both books while levels were `Queue<Order>` and every cancel rebuilt the queue; with linked lists it is 22x cheaper, and most of the remaining time is the 1,000 inserts. With many orders on a single price level the matching scenarios converge, since both books then walk the same list. Run it yourself: `dotnet run -c Release --project bench/ZeroSum.Benchmarks`.
-- **Next:** the API, accounts with fund reservation, and the double-entry ledger.
+- `OrderBookProcessor`: all work on a book goes through one `Channel<Action>` and runs on a single reader thread, so the book itself stays single-threaded and needs no locks. `ExecuteAsync` puts the work in the queue and returns a task that completes with the result, or with the exception the book threw.
+- HTTP API (ASP.NET Core Minimal API) on top of one `BitmapOrderBook`:
+
+  | Method | Route | Result |
+  |---|---|---|
+  | `GET` | `/book` | best bid and best ask |
+  | `POST` | `/orders` | `{ orderId, trades }`; `400` with the error message for an invalid order |
+  | `DELETE` | `/orders/{id}` | `200` if the order was cancelled, `404` if there is no such resting order |
+
+  The request body carries side, type, price and quantity only. The server sets the id and the timestamp, so a client cannot claim an earlier place in the queue.
+- The race the processor fixed. A test sends 1,000 orders at once. While the routes called the book directly from request threads, one run gave 997 unique order ids out of 1,000 (`nextId++` is a read and a write, and two threads read the same value), and another run returned `500` because two threads wrote to the same `Dictionary` at once. With every call going through `OrderBookProcessor`, the test passes on every run. API tests start the app in memory with `WebApplicationFactory` and send real HTTP requests: 6 API tests, 62 in total.
+- **Next:** accounts with fund reservation and the double-entry ledger, then live updates over SignalR.
 
 The walkthrough below describes how the finished exchange will behave.
 
@@ -146,13 +157,29 @@ Browser (SvelteKit) / Bots
 - [x] Order matching for limit orders with price-time priority
 - [x] Price tick rule, market orders, cancellation
 - [x] Price-grid order book with bitmap search, benchmarked against `SortedDictionaryOrderBook`
-- [ ] API, accounts, fund reservation, double-entry ledger
+- [x] HTTP API: order book, placing and cancelling orders, one queue per book
+- [ ] Accounts, fund reservation, double-entry ledger
 - [ ] Live UI: order book, trades, order form, balances
 - [ ] Bots and public demo
 - [ ] Race test, crash-recovery test, benchmarks
 - [ ] Candlestick chart and leaderboard
 
 ## Getting started
+
+Run the tests:
+
+```
+dotnet test
+```
+
+Run the API and send an order:
+
+```
+dotnet run --project src/ZeroSum.Api
+curl -X POST http://localhost:5068/orders -H "Content-Type: application/json" -d '{"side":"Sell","type":"Limit","price":100.50,"quantity":5}'
+curl http://localhost:5068/book
+curl -X DELETE http://localhost:5068/orders/1
+```
 
 *Coming soon:* `docker compose up` will start the API, the frontend and the database.
 
